@@ -1,0 +1,36 @@
+# Built artifacts
+.gradle/
+build/
+**/build/
+captures/
+.cxx/
+
+# Local SDK / IDE
+local.properties
+.idea/
+*.iml
+.DS_Store
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Keystores — never commit store secrets
+*.jks
+*.keystore
+keystore.properties
+
+# OS / editor
+.vscode/
+*.swp
+*~
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Misc
+.kotlin/
+.externalNativeBuild/

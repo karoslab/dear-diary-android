@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Defense in depth: even if a library tried to open a socket, cleartext is denied. -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
