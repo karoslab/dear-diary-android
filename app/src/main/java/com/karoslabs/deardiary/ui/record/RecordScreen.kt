@@ -29,13 +29,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -211,7 +211,7 @@ fun RecordScreen(
                         phase = state.phase,
                         onClick = { onMic() },
                     )
-                    Spacer(Modifier.height(22.dp))
+                    Spacer(Modifier.height(18.dp))
                     val label = when (state.phase) {
                         RecordPhase.Idle -> "PRESS TO SPEAK"
                         RecordPhase.Recording -> "LISTENING  ·  ${TimeFormat.duration(state.elapsedMs)}"
@@ -220,10 +220,11 @@ fun RecordScreen(
                     }
                     Text(
                         label,
-                        color = colors.textPrimary,
+                        color = if (state.phase == RecordPhase.Idle) colors.textSecondary else colors.textPrimary,
                         fontFamily = Inter,
-                        fontSize = 14.sp,
-                        letterSpacing = 3.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                        fontSize = 12.sp,
+                        letterSpacing = 4.2.sp,
                     )
                     if (state.phase == RecordPhase.Recording || state.phase == RecordPhase.Paused) {
                         Spacer(Modifier.height(18.dp))
@@ -288,16 +289,16 @@ private fun RecordButton(phase: RecordPhase, onClick: () -> Unit) {
         )
         a
     }
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(220.dp)) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(240.dp)) {
         if (!reduce) {
-            listOf(1.55f, 1.32f, 1.12f).forEachIndexed { i, s ->
+            listOf(196.dp, 168.dp, 140.dp).forEachIndexed { i, ring ->
                 Box(
                     Modifier
-                        .size(140.dp)
-                        .scale(s * if (active) pulse else 1f)
+                        .size(ring)
+                        .scale(if (active) pulse else 1f)
                         .border(
                             1.dp,
-                            colors.textTertiary.copy(alpha = 0.28f - i * 0.05f),
+                            colors.textTertiary.copy(alpha = 0.22f - i * 0.04f),
                             CircleShape,
                         ),
                 )
@@ -305,17 +306,17 @@ private fun RecordButton(phase: RecordPhase, onClick: () -> Unit) {
         }
         Box(
             modifier = Modifier
-                .size(118.dp)
+                .size(108.dp)
                 .clip(CircleShape)
                 .background(colors.surface)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Filled.Mic,
+                if (active) Icons.Filled.Mic else Icons.Outlined.Mic,
                 contentDescription = "Record",
                 tint = if (active) colors.gold else colors.textPrimary,
-                modifier = Modifier.size(42.dp),
+                modifier = Modifier.size(36.dp),
             )
         }
     }

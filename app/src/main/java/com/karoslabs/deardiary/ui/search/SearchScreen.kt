@@ -31,6 +31,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.util.Locale
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -81,7 +82,7 @@ fun SearchScreen(
     Column(Modifier.fillMaxSize().background(colors.background)) {
         AppHeader()
         ScreenTitle("Search")
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
         BasicTextField(
             value = state.query,
             onValueChange = vm::onQuery,
@@ -91,9 +92,9 @@ fun SearchScreen(
             modifier = Modifier
                 .padding(horizontal = 20.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(22.dp))
                 .background(colors.surface)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 13.dp),
             decorationBox = { inner ->
                 Box {
                     if (state.query.isEmpty()) {
@@ -103,26 +104,26 @@ fun SearchScreen(
                 }
             },
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
             "ran over local entries, 0 bytes sent",
-            style = DiaryType.mono,
+            style = DiaryType.mono.copy(fontSize = 11.sp),
             color = colors.textSecondary,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
         Text(
             if (!state.ran) "type to search this device" else "${state.results.size} ${if (state.results.size == 1) "result" else "results"}",
-            style = DiaryType.mono,
+            style = DiaryType.preview.copy(fontSize = 13.sp),
             color = colors.textSecondary,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
         if (state.results.isNotEmpty()) {
             LazyColumn(
                 Modifier
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 96.dp)
-                    .clip(RoundedCornerShape(28.dp))
+                    .clip(RoundedCornerShape(24.dp))
                     .background(colors.surface),
             ) {
                 itemsIndexed(state.results, key = { _, e -> e.id }) { index, entry ->
@@ -134,7 +135,7 @@ fun SearchScreen(
                         previewOverride = highlightQuery(entry.transcript, state.query, colors.gold),
                     )
                     if (index != state.results.lastIndex) {
-                        HorizontalDivider(color = colors.border.copy(alpha = 0.5f))
+                        HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
                     }
                 }
             }

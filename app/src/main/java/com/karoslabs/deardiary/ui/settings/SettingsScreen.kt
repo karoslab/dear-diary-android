@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -149,7 +149,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
             message?.let {
                 Text(it, color = colors.gold, style = DiaryType.preview, modifier = Modifier.padding(bottom = 12.dp).clickable { vm.clearMessage() })
             }
-            SectionTitle("Your data")
+            SectionTitle("YOUR DATA")
             DiaryCard {
                 SettingsRow(
                     title = "Export everything",
@@ -169,7 +169,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                         }
                     },
                 )
-                HorizontalDivider(color = colors.border)
+                HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
                 SettingsRow(
                     title = "Import",
                     subtitle = "Bring in a backup file that is already on this device.",
@@ -177,19 +177,14 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 )
             }
             Spacer(Modifier.height(22.dp))
-            SectionTitle("On this device")
+            SectionTitle("ON THIS DEVICE")
             DiaryCard {
                 val s = stats
                 val usedRatio = if (s == null || s.totalBytes == 0L) 0f else {
                     1f - (s.freeBytes.toFloat() / s.totalBytes.toFloat())
                 }
                 Column(Modifier.padding(vertical = 16.dp)) {
-                    LinearProgressIndicator(
-                        progress = { usedRatio.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)),
-                        color = colors.gold,
-                        trackColor = colors.surfaceRaised,
-                    )
+                    StorageBar(usedRatio.coerceIn(0f, 1f))
                     Spacer(Modifier.height(12.dp))
                     val free = s?.freeBytes ?: deviceFree()
                     val total = s?.totalBytes ?: deviceTotal()
@@ -204,7 +199,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                         color = colors.textSecondary,
                     )
                     Spacer(Modifier.height(12.dp))
-                    HorizontalDivider(color = colors.border)
+                    HorizontalDivider(thickness = 0.5.dp, color = colors.hairline)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth()) {
                         Text("${s?.entryCount ?: 0} entries", style = DiaryType.mono, color = colors.textSecondary)
@@ -214,20 +209,20 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 }
             }
             Spacer(Modifier.height(22.dp))
-            SectionTitle("Theme")
+            SectionTitle("THEME")
             DiaryCard {
                 Column(Modifier.padding(vertical = 14.dp)) {
                     ThemeSegment(selected = theme, onSelect = vm::setTheme)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "dear diary follows your device setting for reduced motion. When it is on, animations are kept to a minimum.",
-                        style = DiaryType.preview.copy(fontSize = 12.sp),
-                        color = colors.textSecondary,
-                    )
                 }
             }
-            Spacer(Modifier.height(22.dp))
-            SectionTitle("Speech to text")
+            Text(
+                "dear diary follows your device setting for reduced motion. When it is on, animations are kept to a minimum.",
+                style = DiaryType.preview.copy(fontSize = 12.sp),
+                color = colors.textSecondary,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+            SectionTitle("SPEECH TO TEXT")
             DiaryCard {
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 16.dp),
@@ -244,8 +239,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 color = colors.textTertiary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
             )
-            Spacer(Modifier.height(12.dp))
-            SectionTitle("Danger")
+            Spacer(Modifier.height(16.dp))
             DiaryCard {
                 SettingsRow(
                     title = "Wipe everything",
@@ -303,7 +297,32 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 @Composable
 private fun SectionTitle(text: String) {
     val colors = LocalDiaryColors.current
-    Text(text, style = DiaryType.body, color = colors.textPrimary, modifier = Modifier.padding(bottom = 10.dp, start = 4.dp))
+    Text(
+        text,
+        style = DiaryType.section,
+        color = colors.textTertiary,
+        modifier = Modifier.padding(bottom = 10.dp, start = 4.dp),
+    )
+}
+
+@Composable
+private fun StorageBar(usedRatio: Float) {
+    val colors = LocalDiaryColors.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(colors.surfaceRaised),
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(usedRatio.coerceIn(0.02f, 1f))
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(colors.gold),
+        )
+    }
 }
 
 @Composable
@@ -332,22 +351,22 @@ private fun ThemeSegment(selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.background.copy(alpha = 0.35f))
-            .padding(4.dp),
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (colors.isDark) Color.Black else colors.background)
+            .padding(3.dp),
     ) {
         ThemeMode.entries.forEach { mode ->
             val on = mode == selected
             Box(
                 Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (on) colors.surfaceRaised else androidx.compose.ui.graphics.Color.Transparent)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(if (on) colors.surfaceRaised else Color.Transparent)
                     .clickable { onSelect(mode) }
-                    .padding(vertical = 10.dp),
+                    .padding(vertical = 9.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(mode.name, color = if (on) colors.textPrimary else colors.textSecondary, fontFamily = Inter)
+                Text(mode.name, color = if (on) colors.textPrimary else colors.textSecondary, fontFamily = Inter, fontSize = 14.sp)
             }
         }
     }

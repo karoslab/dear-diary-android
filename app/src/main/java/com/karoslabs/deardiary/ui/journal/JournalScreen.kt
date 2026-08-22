@@ -70,7 +70,7 @@ fun JournalScreen(
     Column(Modifier.fillMaxSize().background(colors.background)) {
         AppHeader()
         ScreenTitle("Journal")
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         LazyColumn(Modifier.fillMaxSize().padding(bottom = 96.dp)) {
             item {
                 StatsPair(streak = streak, entries = entries.size)

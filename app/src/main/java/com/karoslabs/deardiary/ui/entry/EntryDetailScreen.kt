@@ -2,9 +2,12 @@ package com.karoslabs.deardiary.ui.entry
 
 import android.app.Application
 import android.content.Intent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,12 +27,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -41,7 +42,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -148,32 +156,37 @@ fun EntryDetailScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(40.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(colors.surface)
                         .clickable(onClick = onBack),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back", tint = colors.textPrimary, modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                        "Back",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(22.dp),
+                    )
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
                     "Delete entry",
                     color = colors.delete,
                     fontFamily = Inter,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(colors.surface)
+                        .clip(RoundedCornerShape(18.dp))
+                        .border(0.5.dp, colors.border, RoundedCornerShape(18.dp))
                         .clickable { confirmDelete = true }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 )
             }
             Spacer(Modifier.height(22.dp))
             Row(Modifier.fillMaxWidth()) {
                 Text(TimeFormat.fullStamp(current.createdAt), style = DiaryType.goldTime, color = colors.gold)
                 Spacer(Modifier.weight(1f))
-                Text(TimeFormat.duration(current.durationMs), style = DiaryType.goldTime, color = colors.gold)
+                Text(TimeFormat.duration(current.durationMs), style = DiaryType.goldTime, color = colors.textTertiary)
             }
             Spacer(Modifier.height(10.dp))
             var title by remember(current.id, current.title) { mutableStateOf(current.title) }
@@ -253,8 +266,8 @@ fun EntryDetailScreen(
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(1.dp, colors.border, RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(18.dp))
+                    .border(0.5.dp, colors.border, RoundedCornerShape(18.dp))
                     .clickable {
                         val scope = vm
                         kotlinx.coroutines.MainScope().launch {
@@ -273,7 +286,7 @@ fun EntryDetailScreen(
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Export this entry", color = colors.textPrimary, fontFamily = Inter, fontSize = 15.sp)
+                Text("Export this entry", color = colors.textSecondary, fontFamily = Inter, fontSize = 15.sp)
             }
         }
     }
@@ -341,8 +354,7 @@ private fun AudioScrubber(entry: JournalEntry, storageFile: File?) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
+                    .size(32.dp)
                     .clickable(enabled = hasAudio) {
                         if (snap.isPlaying) player.pause() else player.play()
                     },
@@ -352,36 +364,82 @@ private fun AudioScrubber(entry: JournalEntry, storageFile: File?) {
                     if (snap.isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                     contentDescription = if (snap.isPlaying) "Pause" else "Play",
                     tint = colors.textPrimary,
+                    modifier = Modifier.size(22.dp),
                 )
             }
             Spacer(Modifier.width(8.dp))
             val duration = (if (snap.durationMs > 0) snap.durationMs else entry.durationMs).coerceAtLeast(1)
-            Slider(
-                value = (snap.positionMs.toFloat() / duration).coerceIn(0f, 1f),
-                onValueChange = { player.seekTo((it * duration).toLong()) },
+            val progress = (snap.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+            IosScrubber(
+                progress = progress,
                 enabled = hasAudio,
+                onSeek = { player.seekTo((it * duration).toLong()) },
                 modifier = Modifier.weight(1f),
-                colors = SliderDefaults.colors(
-                    thumbColor = colors.textPrimary,
-                    activeTrackColor = colors.textPrimary,
-                    inactiveTrackColor = colors.textTertiary.copy(alpha = 0.45f),
-                    disabledActiveTrackColor = colors.textTertiary,
-                    disabledInactiveTrackColor = colors.textTertiary.copy(alpha = 0.35f),
-                    disabledThumbColor = colors.textPrimary,
-                ),
             )
         }
-        Row(Modifier.fillMaxWidth().padding(start = 44.dp, end = 8.dp)) {
-            Text(TimeFormat.duration(snap.positionMs), style = DiaryType.goldTime.copy(fontSize = 11.sp), color = colors.gold)
+        Row(Modifier.fillMaxWidth().padding(start = 40.dp, end = 4.dp, top = 2.dp)) {
+            Text(TimeFormat.duration(snap.positionMs), style = DiaryType.goldTime.copy(fontSize = 10.sp), color = colors.textTertiary)
             Spacer(Modifier.weight(1f))
-            Text(TimeFormat.duration(if (snap.durationMs > 0) snap.durationMs else entry.durationMs), style = DiaryType.goldTime.copy(fontSize = 11.sp), color = colors.gold)
+            Text(TimeFormat.duration(if (snap.durationMs > 0) snap.durationMs else entry.durationMs), style = DiaryType.goldTime.copy(fontSize = 10.sp), color = colors.textTertiary)
         }
         if (!hasAudio) {
             Text(
                 "No audio on this entry.",
                 style = DiaryType.preview.copy(fontSize = 11.sp),
                 color = colors.textTertiary,
-                modifier = Modifier.padding(start = 44.dp, top = 2.dp),
+                modifier = Modifier.padding(start = 40.dp, top = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun IosScrubber(
+    progress: Float,
+    enabled: Boolean,
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalDiaryColors.current
+    var widthPx by remember { mutableStateOf(1f) }
+    fun seekAt(x: Float) {
+        if (!enabled) return
+        onSeek((x / widthPx).coerceIn(0f, 1f))
+    }
+    Box(
+        modifier
+            .height(28.dp)
+            .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
+            .pointerInput(enabled, widthPx) {
+                detectTapGestures { seekAt(it.x) }
+            }
+            .pointerInput(enabled, widthPx) {
+                detectDragGestures { change, _ -> seekAt(change.position.x) }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxWidth().height(28.dp)) {
+            val y = size.height / 2f
+            val x = size.width * progress.coerceIn(0f, 1f)
+            drawLine(
+                color = colors.textTertiary.copy(alpha = 0.45f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                color = Color.White,
+                start = Offset(0f, y),
+                end = Offset(x, y),
+                strokeWidth = 5.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(x - 3.dp.toPx(), y - 8.dp.toPx()),
+                size = Size(6.dp.toPx(), 16.dp.toPx()),
+                cornerRadius = CornerRadius(3.dp.toPx()),
             )
         }
     }

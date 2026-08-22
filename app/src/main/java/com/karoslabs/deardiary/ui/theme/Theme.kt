@@ -1,6 +1,8 @@
 package com.karoslabs.deardiary.ui.theme
 
+import android.app.Activity
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,15 +13,19 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.karoslabs.deardiary.R
 import com.karoslabs.deardiary.domain.ThemeMode
 
@@ -44,6 +50,7 @@ data class DiaryColors(
     val surface: Color,
     val surfaceRaised: Color,
     val border: Color,
+    val hairline: Color,
     val gold: Color,
     val goldMuted: Color,
     val textPrimary: Color,
@@ -54,6 +61,8 @@ data class DiaryColors(
     val heatmap: List<Color>,
     val tabBar: Color,
     val tabBarBorder: Color,
+    val tabInactive: Color,
+    val tabHighlight: Color,
     val isDark: Boolean,
 )
 
@@ -61,23 +70,26 @@ val DarkDiary = DiaryColors(
     background = Color(0xFF000000),
     surface = Color(0xFF1C1C1E),
     surfaceRaised = Color(0xFF2C2C2E),
-    border = Color(0x33FFFFFF),
-    gold = Color(0xFFCDB56A),
-    goldMuted = Color(0xFFB89A4E),
+    border = Color(0x26FFFFFF),
+    hairline = Color(0x1AFFFFFF),
+    gold = Color(0xFFD4AF37),
+    goldMuted = Color(0xFFC4A35A),
     textPrimary = Color(0xFFFFFFFF),
     textSecondary = Color(0xFF8E8E93),
     textTertiary = Color(0xFF636366),
-    pill = Color(0xFF2A2A2C),
-    delete = Color(0xFFE07A6A),
+    pill = Color(0xFF2C2C2E),
+    delete = Color(0xFFE07A7A),
     heatmap = listOf(
-        Color(0xFF242426),
-        Color(0xFF3C3422),
-        Color(0xFF6E5C2E),
-        Color(0xFFA88B3A),
-        Color(0xFFCDB56A),
+        Color(0xFF2C2C2E),
+        Color(0xFF4A3F24),
+        Color(0xFF8C7038),
+        Color(0xFFC4A24A),
+        Color(0xFFE8C85A),
     ),
-    tabBar = Color(0xE61C1C1E),
-    tabBarBorder = Color(0x40FFFFFF),
+    tabBar = Color(0xCC141416),
+    tabBarBorder = Color(0x33FFFFFF),
+    tabInactive = Color(0xFFFFFFFF),
+    tabHighlight = Color(0x403A2E14),
     isDark = true,
 )
 
@@ -86,6 +98,7 @@ val LightDiary = DiaryColors(
     surface = Color(0xFFFFFBF3),
     surfaceRaised = Color(0xFFE8E0D0),
     border = Color(0x332C2416),
+    hairline = Color(0x1A2C2416),
     gold = Color(0xFF9A7B2F),
     goldMuted = Color(0xFF7A6124),
     textPrimary = Color(0xFF1A1610),
@@ -102,6 +115,8 @@ val LightDiary = DiaryColors(
     ),
     tabBar = Color(0xF2FFFBF3),
     tabBarBorder = Color(0x332C2416),
+    tabInactive = Color(0xFF1A1610),
+    tabHighlight = Color(0x33C4A85A),
     isDark = false,
 )
 
@@ -113,13 +128,22 @@ val DiaryColors.scheme: ColorScheme
         darkColorScheme(
             primary = gold,
             onPrimary = Color.Black,
-            background = background,
-            onBackground = textPrimary,
-            surface = surface,
-            onSurface = textPrimary,
-            surfaceVariant = surfaceRaised,
+            background = Color.Black,
+            onBackground = Color.White,
+            surface = Color.Black,
+            onSurface = Color.White,
+            surfaceVariant = surface,
             onSurfaceVariant = textSecondary,
+            surfaceTint = Color.Transparent,
+            surfaceBright = Color.Black,
+            surfaceDim = Color.Black,
+            surfaceContainer = Color.Black,
+            surfaceContainerHigh = Color.Black,
+            surfaceContainerHighest = Color.Black,
+            surfaceContainerLow = Color.Black,
+            surfaceContainerLowest = Color.Black,
             outline = border,
+            outlineVariant = hairline,
             error = delete,
         )
     } else {
@@ -128,10 +152,11 @@ val DiaryColors.scheme: ColorScheme
             onPrimary = Color.White,
             background = background,
             onBackground = textPrimary,
-            surface = surface,
+            surface = background,
             onSurface = textPrimary,
-            surfaceVariant = surfaceRaised,
+            surfaceVariant = surface,
             onSurfaceVariant = textSecondary,
+            surfaceTint = Color.Transparent,
             outline = border,
             error = delete,
         )
@@ -141,27 +166,28 @@ object DiaryType {
     val brand = TextStyle(
         fontFamily = Playfair,
         fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
-        letterSpacing = (-0.3).sp,
+        fontSize = 20.sp,
+        letterSpacing = 0.15.sp,
     )
     val screenTitle = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
+        fontSize = 17.sp,
         letterSpacing = (-0.2).sp,
     )
     val entryTitle = TextStyle(
         fontFamily = Playfair,
         fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        letterSpacing = (-0.2).sp,
+        fontSize = 19.sp,
+        letterSpacing = (-0.15).sp,
+        lineHeight = 24.sp,
     )
     val entryTitleLarge = TextStyle(
         fontFamily = Playfair,
         fontWeight = FontWeight.Bold,
-        fontSize = 30.sp,
+        fontSize = 28.sp,
         letterSpacing = (-0.4).sp,
-        lineHeight = 36.sp,
+        lineHeight = 34.sp,
     )
     val body = TextStyle(
         fontFamily = Inter,
@@ -179,24 +205,31 @@ object DiaryType {
         fontFamily = Inter,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
-        letterSpacing = 1.4.sp,
+        letterSpacing = 1.6.sp,
+    )
+    val section = TextStyle(
+        fontFamily = Inter,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        letterSpacing = 1.5.sp,
     )
     val mono = TextStyle(
         fontFamily = PlexMono,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
     )
     val stat = TextStyle(
         fontFamily = Inter,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 44.sp,
-        letterSpacing = (-1).sp,
+        fontSize = 42.sp,
+        letterSpacing = (-1.2).sp,
     )
     val goldTime = TextStyle(
-        fontFamily = Inter,
-        fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
+        fontFamily = PlexMono,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        letterSpacing = (-0.2).sp,
     )
 }
 
@@ -234,6 +267,13 @@ fun DearDiaryTheme(
     }
     val colors = if (dark) DarkDiary else LightDiary
     val reduceMotion = rememberReduceMotion()
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.context as? Activity)?.window ?: return@SideEffect
+        window.setBackgroundDrawable(ColorDrawable(colors.background.toArgb()))
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !dark
+        WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !dark
+    }
     CompositionLocalProvider(
         LocalDiaryColors provides colors,
         LocalReduceMotion provides reduceMotion,
