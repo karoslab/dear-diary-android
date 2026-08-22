@@ -174,13 +174,14 @@ class JournalRepository(
 
     suspend fun seedSampleJournal() {
         if (dao.getAll().isNotEmpty()) return
-        val now = Instant.parse("2026-07-24T11:00:00Z")
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
         persist(
             JournalEntry(
                 id = "sample-morning",
                 title = "Morning before the rush",
                 transcript = "Woke up before the alarm again and just lay there listening to the birds. I want to remember that the day does not actually start with email. It starts here, with coffee going cold because I forgot it, and a list of three things that actually matter. Today those are the design review, calling Amma, and a real lunch away from the desk.",
-                createdAt = now,
+                createdAt = today.atTime(7, 0).atZone(zone).toInstant(),
                 durationMs = 5_000,
                 audioFileName = null,
                 tags = listOf("morning", "work"),
@@ -191,7 +192,7 @@ class JournalRepository(
                 id = "sample-amma",
                 title = "Amma made obbattu",
                 transcript = "Amma made obbattu and the whole house smelled like ghee and cardamom. I ate two before I remembered to say thank you.",
-                createdAt = Instant.parse("2026-07-23T12:00:00Z"),
+                createdAt = today.minusDays(1).atTime(8, 0).atZone(zone).toInstant(),
                 durationMs = 0,
                 audioFileName = null,
                 tags = listOf("family", "food", "gratitude"),
@@ -202,7 +203,7 @@ class JournalRepository(
                 id = "sample-rain",
                 title = "I woke up before the alarm",
                 transcript = "I woke up before the alarm and just listened to the rain for a while. It felt like the day was mine before anyone asked for it.",
-                createdAt = Instant.parse("2026-07-22T13:00:00Z"),
+                createdAt = today.minusDays(2).atTime(7, 30).atZone(zone).toInstant(),
                 durationMs = 48_000,
                 audioFileName = null,
                 tags = listOf("quiet"),
