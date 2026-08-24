@@ -132,7 +132,9 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             timerJob?.cancel()
             val elapsed = _state.value.elapsedMs
-            val transcript = speech.stop()
+            val stopped = speech.stop()
+            val shown = _state.value.liveTranscript
+            val transcript = if (shown.length >= stopped.length) shown else stopped
             val file: File? = recorder.stop()
             if (elapsed < 400 && transcript.isBlank() && file == null) {
                 _state.update { it.copy(phase = RecordPhase.Idle, error = "Nothing to save yet.") }
@@ -140,7 +142,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
             }
             _state.update { it.copy(phase = RecordPhase.Saving) }
             val entry = app.container.repository.saveNew(
-                transcript = transcript.ifBlank { _state.value.liveTranscript },
+                transcript = transcript,
                 durationMs = elapsed,
                 tempAudio = file,
             )

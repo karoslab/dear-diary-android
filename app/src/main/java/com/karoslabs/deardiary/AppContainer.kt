@@ -2,6 +2,8 @@ package com.karoslabs.deardiary
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.karoslabs.deardiary.data.audio.AudioStorage
 import com.karoslabs.deardiary.data.backup.BackupManager
 import com.karoslabs.deardiary.data.db.AppDatabase
@@ -16,7 +18,13 @@ class AppContainer(context: Context) {
         appContext,
         AppDatabase::class.java,
         "dear_diary.db",
-    ).fallbackToDestructiveMigration(dropAllTables = true).build()
+    ).fallbackToDestructiveMigration(dropAllTables = true)
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                db.setForeignKeyConstraintsEnabled(true)
+            }
+        })
+        .build()
 
     val audioStorage = AudioStorage(appContext)
     val backup = BackupManager(audioStorage)

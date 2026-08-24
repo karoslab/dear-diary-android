@@ -21,6 +21,7 @@ class OnDeviceSpeech(private val context: Context) {
     private var recognizer: SpeechRecognizer? = null
     private var running = false
     private var committed = StringBuilder()
+    private var lastShown = ""
     var onPartial: ((String) -> Unit)? = null
 
     val engineInfo: SpeechEngineInfo
@@ -47,6 +48,7 @@ class OnDeviceSpeech(private val context: Context) {
             stopInternal(clear = true)
             running = true
             committed.clear()
+            lastShown = ""
             bindAndListen()
         }
     }
@@ -66,7 +68,7 @@ class OnDeviceSpeech(private val context: Context) {
     }
 
     fun stop(): String {
-        var result = committed.toString().trim()
+        val result = lastShown.ifBlank { committed.toString().trim() }
         main.post {
             running = false
             stopInternal(clear = false)
@@ -123,7 +125,10 @@ class OnDeviceSpeech(private val context: Context) {
         } catch (_: Exception) {
         }
         recognizer = null
-        if (clear) committed.clear()
+        if (clear) {
+            committed.clear()
+            lastShown = ""
+        }
     }
 
     private val listener = object : RecognitionListener {
@@ -144,6 +149,7 @@ class OnDeviceSpeech(private val context: Context) {
             val shown = listOf(committed.toString().trim(), piece)
                 .filter { it.isNotBlank() }
                 .joinToString(" ")
+            lastShown = shown
             onPartial?.invoke(shown)
         }
 
@@ -154,6 +160,7 @@ class OnDeviceSpeech(private val context: Context) {
                 committed.append(piece)
             }
             onPartial?.invoke(committed.toString())
+            lastShown = committed.toString().trim()
             if (running) {
                 main.postDelayed({ if (running) bindAndListen() }, 150)
             }

@@ -105,6 +105,7 @@ class JournalRepository(
     suspend fun delete(id: String) {
         val current = dao.getById(id)
         storage.deleteAudio(current?.entry?.audioFileName)
+        dao.deleteTagsFor(id)
         dao.deleteEntry(id)
     }
 
