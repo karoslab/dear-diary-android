@@ -1,14 +1,12 @@
 package com.karoslabs.deardiary.data.speech
 
 import android.content.Context
-import android.content.Intent
-import android.os.Build
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
+import com.karoslabs.deardiary.domain.VoskJson
+import org.vosk.Model
+import org.vosk.Recognizer
+import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.zip.ZipInputStream
 
 data class SpeechEngineInfo(
     val label: String,
@@ -16,159 +14,179 @@ data class SpeechEngineInfo(
     val onDeviceAvailable: Boolean,
 )
 
+/**
+ * Live transcription that does NOT open the microphone.
+ * [acceptPcm] is fed from the single AudioRecord tap that also writes the file
+ * (same shape as iOS AVAudioEngine → SpeechAnalyzer + AVAudioFile).
+ */
 class OnDeviceSpeech(private val context: Context) {
-    private val main = Handler(Looper.getMainLooper())
-    private var recognizer: SpeechRecognizer? = null
-    private var running = false
-    private var committed = StringBuilder()
+    private val lock = Any()
+    private var model: Model? = null
+    private var recognizer: Recognizer? = null
+    private val committed = StringBuilder()
     private var lastShown = ""
+    private val started = AtomicBoolean(false)
     var onPartial: ((String) -> Unit)? = null
 
     val engineInfo: SpeechEngineInfo
         get() {
-            val onDevice = Build.VERSION.SDK_INT >= 31 &&
-                SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-            return if (onDevice) {
+            val ready = synchronized(lock) { model != null || modelDir().let { File(it, "am/final.mdl").exists() } }
+            return if (ready || assetZipExists()) {
                 SpeechEngineInfo(
-                    label = "Google speech, on device",
-                    detail = "Android may download the speech model once, from Google, so dear diary can work with no internet after that. Your voice never rides along. This app has no internet permission, so journal audio and transcripts cannot be uploaded by dear diary.",
+                    label = "Vosk, on this device",
+                    detail = "Words are recognized from the same microphone tap that writes your audio file. The English model lives on this phone. dear diary has no internet permission, so nothing is uploaded.",
                     onDeviceAvailable = true,
                 )
             } else {
                 SpeechEngineInfo(
-                    label = "Android speech recognizer, prefers offline",
-                    detail = "dear diary asks the system recognizer to stay offline (EXTRA_PREFER_OFFLINE). If an on-device model is not installed, recognition may be unavailable rather than sending your journal to a server. This app has no internet permission. The system may still download a speech model once, from Google, so later sessions work with no internet.",
+                    label = "Speech model missing",
+                    detail = "The on-device speech model is not in the app package. Audio still records. Rebuild with the Vosk model asset, or recording will save sound without live words.",
                     onDeviceAvailable = false,
                 )
             }
         }
 
     fun start() {
-        main.post {
-            stopInternal(clear = true)
-            running = true
-            committed.clear()
+        synchronized(lock) {
+            committed.setLength(0)
             lastShown = ""
-            bindAndListen()
+            started.set(true)
+            val m = model ?: loadModel().also { model = it }
+            recognizer?.close()
+            recognizer = if (m != null) Recognizer(m, SAMPLE_RATE.toFloat()) else null
         }
+    }
+
+    fun acceptPcm(samples: ShortArray, count: Int) {
+        if (!started.get()) return
+        val rec: Recognizer
+        synchronized(lock) {
+            rec = recognizer ?: return
+        }
+        val n = count.coerceAtMost(samples.size)
+        if (n <= 0) return
+        val bytes = ByteArray(n * 2)
+        var i = 0
+        var b = 0
+        while (i < n) {
+            val s = samples[i].toInt()
+            bytes[b] = (s and 0xff).toByte()
+            bytes[b + 1] = ((s shr 8) and 0xff).toByte()
+            i++
+            b += 2
+        }
+        val shown = synchronized(lock) {
+            if (!started.get() || recognizer !== rec) return
+            if (rec.acceptWaveForm(bytes, bytes.size)) {
+                val piece = VoskJson.text(rec.result)
+                if (piece.isNotBlank()) {
+                    if (committed.isNotEmpty()) committed.append(' ')
+                    committed.append(piece)
+                }
+                lastShown = committed.toString()
+            } else {
+                val partial = VoskJson.partial(rec.partialResult)
+                lastShown = listOf(committed.toString(), partial)
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ")
+            }
+            lastShown
+        }
+        onPartial?.invoke(shown)
     }
 
     fun pause() {
-        main.post {
-            running = false
-            stopInternal(clear = false)
-        }
+        started.set(false)
     }
 
     fun resume() {
-        main.post {
-            running = true
-            bindAndListen()
-        }
+        started.set(true)
     }
 
     fun stop(): String {
-        val result = lastShown.ifBlank { committed.toString().trim() }
-        main.post {
-            running = false
-            stopInternal(clear = false)
+        started.set(false)
+        return synchronized(lock) {
+            val rec = recognizer
+            if (rec != null) {
+                val piece = VoskJson.text(rec.finalResult)
+                if (piece.isNotBlank()) {
+                    if (committed.isNotEmpty()) committed.append(' ')
+                    committed.append(piece)
+                }
+                lastShown = committed.toString().trim()
+                rec.close()
+                recognizer = null
+            }
+            lastShown.ifBlank { committed.toString().trim() }
         }
-        return result
     }
 
     fun release() {
-        main.post {
-            running = false
-            stopInternal(clear = true)
-        }
-    }
-
-    private fun bindAndListen() {
-        if (!running) return
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
-            onPartial?.invoke(committed.toString())
-            return
-        }
-        if (recognizer == null) {
-            recognizer = createRecognizer()
-            recognizer?.setRecognitionListener(listener)
-        }
-        try {
-            recognizer?.startListening(intent())
-        } catch (_: Exception) {
-            // Keep recording audio even if speech fails.
-        }
-    }
-
-    private fun createRecognizer(): SpeechRecognizer {
-        return if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(context)
-        }
-    }
-
-    private fun intent(): Intent {
-        return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-        }
-    }
-
-    private fun stopInternal(clear: Boolean) {
-        try {
-            recognizer?.cancel()
-            recognizer?.destroy()
-        } catch (_: Exception) {
-        }
-        recognizer = null
-        if (clear) {
-            committed.clear()
+        started.set(false)
+        synchronized(lock) {
+            recognizer?.close()
+            recognizer = null
+            committed.setLength(0)
             lastShown = ""
         }
     }
 
-    private val listener = object : RecognitionListener {
-        override fun onReadyForSpeech(params: Bundle?) = Unit
-        override fun onBeginningOfSpeech() = Unit
-        override fun onRmsChanged(rmsdB: Float) = Unit
-        override fun onBufferReceived(buffer: ByteArray?) = Unit
-        override fun onEndOfSpeech() = Unit
-        override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    private fun assetZipExists(): Boolean = try {
+        context.assets.open(ASSET_ZIP).close()
+        true
+    } catch (_: Exception) {
+        false
+    }
 
-        override fun onError(error: Int) {
-            if (!running) return
-            main.postDelayed({ if (running) bindAndListen() }, 250)
-        }
+    private fun modelDir(): File = File(context.filesDir, MODEL_DIR)
 
-        override fun onPartialResults(partialResults: Bundle?) {
-            val piece = firstResult(partialResults)
-            val shown = listOf(committed.toString().trim(), piece)
-                .filter { it.isNotBlank() }
-                .joinToString(" ")
-            lastShown = shown
-            onPartial?.invoke(shown)
-        }
+    private fun loadModel(): Model? {
+        val dir = unpackModel() ?: return null
+        return runCatching { Model(dir.absolutePath) }.getOrNull()
+    }
 
-        override fun onResults(results: Bundle?) {
-            val piece = firstResult(results)
-            if (piece.isNotBlank()) {
-                if (committed.isNotEmpty()) committed.append(' ')
-                committed.append(piece)
+    private fun unpackModel(): File? {
+        val dest = modelDir()
+        val unpacked = File(dest, INNER)
+        val marker = File(dest, ".ok")
+        if (marker.exists() && File(unpacked, "am/final.mdl").exists()) return unpacked
+        dest.deleteRecursively()
+        dest.mkdirs()
+        val root = dest.canonicalFile
+        return try {
+            context.assets.open(ASSET_ZIP).use { raw ->
+                ZipInputStream(raw).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        val name = entry.name.trimStart('/')
+                        val out = File(dest, name).canonicalFile
+                        if (!out.path.startsWith(root.path + File.separator) && out != root) {
+                            throw IllegalArgumentException("zip slip: ${entry.name}")
+                        }
+                        if (entry.isDirectory) {
+                            out.mkdirs()
+                        } else {
+                            out.parentFile?.mkdirs()
+                            out.outputStream().use { zip.copyTo(it) }
+                        }
+                        zip.closeEntry()
+                        entry = zip.nextEntry
+                    }
+                }
             }
-            onPartial?.invoke(committed.toString())
-            lastShown = committed.toString().trim()
-            if (running) {
-                main.postDelayed({ if (running) bindAndListen() }, 150)
-            }
+            if (!File(unpacked, "am/final.mdl").exists()) return null
+            marker.writeText("ok")
+            unpacked
+        } catch (_: Exception) {
+            dest.deleteRecursively()
+            null
         }
     }
 
-    private fun firstResult(bundle: Bundle?): String {
-        val list = bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-        return list?.firstOrNull()?.trim().orEmpty()
+    companion object {
+        const val SAMPLE_RATE = 16_000
+        private const val ASSET_ZIP = "vosk-small-en-us.zip"
+        private const val MODEL_DIR = "vosk-small-en-us"
+        private const val INNER = "vosk-model-small-en-us-0.15"
     }
 }

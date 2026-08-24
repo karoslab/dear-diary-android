@@ -34,6 +34,25 @@ object StorageNames {
     fun exportZipName(id: String): String = "dear-diary-${requireSafeBasename(id)}.zip"
 }
 
+/** Tiny field reader for Vosk's {"text":"..."} / {"partial":"..."} lines. */
+object VoskJson {
+    fun text(json: String): String = field(json, "text")
+    fun partial(json: String): String = field(json, "partial")
+
+    fun field(json: String, key: String): String {
+        val needle = "\"$key\""
+        val keyAt = json.indexOf(needle)
+        if (keyAt < 0) return ""
+        val colon = json.indexOf(':', keyAt + needle.length)
+        if (colon < 0) return ""
+        val q1 = json.indexOf('"', colon + 1)
+        if (q1 < 0) return ""
+        val q2 = json.indexOf('"', q1 + 1)
+        if (q2 < 0) return ""
+        return json.substring(q1 + 1, q2).trim()
+    }
+}
+
 enum class ThemeMode { System, Dark, Light }
 
 object TitleGenerator {

@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,7 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -140,6 +140,7 @@ fun EntryDetailScreen(
     val colors = LocalDiaryColors.current
     val context = LocalContext.current
     val app = context.applicationContext as DearDiaryApp
+    val exportScope = rememberCoroutineScope()
     LaunchedEffect(entryId) { vm.setId(entryId) }
     val entry by vm.entry.collectAsStateWithLifecycle()
     val resolved by vm.resolved.collectAsStateWithLifecycle()
@@ -280,10 +281,9 @@ fun EntryDetailScreen(
                     .clip(RoundedCornerShape(18.dp))
                     .border(0.5.dp, colors.border, RoundedCornerShape(18.dp))
                     .clickable {
-                        val scope = vm
-                        kotlinx.coroutines.MainScope().launch {
+                        exportScope.launch {
                             runCatching {
-                                val file = scope.exportFile(current.id)
+                                val file = vm.exportFile(current.id)
                                 val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "application/zip"
@@ -440,14 +440,14 @@ private fun IosScrubber(
                 cap = StrokeCap.Round,
             )
             drawLine(
-                color = Color.White,
+                color = colors.gold,
                 start = Offset(0f, y),
                 end = Offset(x, y),
                 strokeWidth = 5.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawRoundRect(
-                color = Color.White,
+                color = colors.textPrimary,
                 topLeft = Offset(x - 3.dp.toPx(), y - 8.dp.toPx()),
                 size = Size(6.dp.toPx(), 16.dp.toPx()),
                 cornerRadius = CornerRadius(3.dp.toPx()),

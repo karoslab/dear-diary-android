@@ -3,6 +3,8 @@ package com.karoslabs.deardiary.domain
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import com.karoslabs.deardiary.data.backup.BackupManager
+import com.karoslabs.deardiary.data.audio.WavWriter
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -143,5 +145,35 @@ class JournalLogicTest {
         assertEquals(original[0].id, back[0].id)
         assertEquals(original[0].audioFileName, back[0].audioFileName)
         assertEquals(original[0].transcript, back[0].transcript)
+    }
+
+    @Test
+    fun voskJsonReadsTextAndPartial() {
+        assertEquals("hello world", VoskJson.text("{\"text\":\"hello world\"}"))
+        assertEquals("hel", VoskJson.partial("{\"partial\":\"hel\"}"))
+        assertEquals("", VoskJson.text("{\"partial\":\"hel\"}"))
+    }
+
+    @Test
+    fun wavWriterWritesParsableHeaderAndPcmSize() {
+        val file = File.createTempFile("dear-diary-wav", ".wav")
+        try {
+            val w = WavWriter(file, 16_000)
+            w.write(shortArrayOf(0, 1, -1, 32_000), 4)
+            w.close()
+            assertEquals(WavWriter.HEADER + 8, file.length().toInt())
+            val bytes = file.readBytes()
+            assertEquals('R'.code.toByte(), bytes[0])
+            assertEquals('I'.code.toByte(), bytes[1])
+            assertEquals('F'.code.toByte(), bytes[2])
+            assertEquals('F'.code.toByte(), bytes[3])
+            val dataSize = (bytes[40].toInt() and 0xff) or
+                ((bytes[41].toInt() and 0xff) shl 8) or
+                ((bytes[42].toInt() and 0xff) shl 16) or
+                ((bytes[43].toInt() and 0xff) shl 24)
+            assertEquals(8, dataSize)
+        } finally {
+            file.delete()
+        }
     }
 }

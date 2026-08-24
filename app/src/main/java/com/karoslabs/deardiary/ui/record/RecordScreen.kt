@@ -61,12 +61,14 @@ import com.karoslabs.deardiary.ui.theme.DiaryType
 import com.karoslabs.deardiary.ui.theme.Inter
 import com.karoslabs.deardiary.ui.theme.LocalDiaryColors
 import com.karoslabs.deardiary.ui.theme.LocalReduceMotion
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 enum class RecordPhase { Idle, Recording, Paused, Saving }
@@ -95,15 +97,19 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun start(context: android.content.Context) {
-        try {
-            recorder.start(context)
-            speech.start()
-            _state.update {
-                it.copy(phase = RecordPhase.Recording, elapsedMs = 0, liveTranscript = "", error = null, saved = null, reflection = null)
+        if (_state.value.phase != RecordPhase.Idle) return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { speech.start() }
+                recorder.onPcm = { samples, n -> speech.acceptPcm(samples, n) }
+                recorder.start(context)
+                _state.update {
+                    it.copy(phase = RecordPhase.Recording, elapsedMs = 0, liveTranscript = "", error = null, saved = null, reflection = null)
+                }
+                startTimer()
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Could not start the microphone.") }
             }
-            startTimer()
-        } catch (e: Exception) {
-            _state.update { it.copy(error = "Could not start the microphone.") }
         }
     }
 
@@ -132,10 +138,10 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             timerJob?.cancel()
             val elapsed = _state.value.elapsedMs
+            val file: File? = recorder.stop()
             val stopped = speech.stop()
             val shown = _state.value.liveTranscript
             val transcript = if (shown.length >= stopped.length) shown else stopped
-            val file: File? = recorder.stop()
             if (elapsed < 400 && transcript.isBlank() && file == null) {
                 _state.update { it.copy(phase = RecordPhase.Idle, error = "Nothing to save yet.") }
                 return@launch

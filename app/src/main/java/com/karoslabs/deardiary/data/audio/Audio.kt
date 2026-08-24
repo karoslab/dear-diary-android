@@ -1,8 +1,6 @@
 package com.karoslabs.deardiary.data.audio
 
 import android.content.Context
-import android.media.MediaRecorder
-import android.os.Build
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -19,11 +17,11 @@ class AudioStorage(private val context: Context) {
     val exportCacheDir: File
         get() = File(context.cacheDir, "export").apply { mkdirs() }
 
-    fun tempRecording(): File = File(context.cacheDir, "recording-temp.m4a")
+    fun tempRecording(): File = File(context.cacheDir, "recording-temp.wav")
 
     fun fileFor(fileName: String): File = File(audioDir, StorageNames.requireSafeBasename(fileName))
 
-    fun newFileName(entryId: String): String = "${StorageNames.requireSafeBasename(entryId)}.m4a"
+    fun newFileName(entryId: String): String = "${StorageNames.requireSafeBasename(entryId)}.wav"
 
     fun usedBytes(): Long {
         if (!audioDir.exists()) return 0L
@@ -51,41 +49,67 @@ class AudioStorage(private val context: Context) {
 }
 
 class AudioRecorder(private val storage: AudioStorage) {
-    private var recorder: MediaRecorder? = null
+    private var record: android.media.AudioRecord? = null
+    private var thread: Thread? = null
+    private var writer: WavWriter? = null
+    @Volatile private var running = false
+    @Volatile private var paused = false
+    var onPcm: ((ShortArray, Int) -> Unit)? = null
     val outputFile: File get() = storage.tempRecording()
 
     fun start(context: Context) {
-        stopInternal(delete = false)
-        outputFile.delete()
-        val rec = if (Build.VERSION.SDK_INT >= 31) {
-            MediaRecorder(context)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
+        stopInternal(delete = true)
+        val min = android.media.AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            android.media.AudioFormat.CHANNEL_IN_MONO,
+            android.media.AudioFormat.ENCODING_PCM_16BIT,
+        )
+        if (min <= 0) error("microphone buffer unavailable")
+        val rec = android.media.AudioRecord(
+            android.media.MediaRecorder.AudioSource.MIC,
+            SAMPLE_RATE,
+            android.media.AudioFormat.CHANNEL_IN_MONO,
+            android.media.AudioFormat.ENCODING_PCM_16BIT,
+            min * 2,
+        )
+        if (rec.state != android.media.AudioRecord.STATE_INITIALIZED) {
+            rec.release()
+            error("microphone failed to open")
         }
-        rec.setAudioSource(MediaRecorder.AudioSource.MIC)
-        rec.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-        rec.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-        rec.setAudioEncodingBitRate(128_000)
-        rec.setAudioSamplingRate(44_100)
-        rec.setOutputFile(outputFile.absolutePath)
-        rec.prepare()
-        rec.start()
-        recorder = rec
+        outputFile.delete()
+        writer = WavWriter(outputFile, SAMPLE_RATE)
+        record = rec
+        running = true
+        paused = false
+        rec.startRecording()
+        thread = Thread({
+            val buf = ShortArray(min)
+            while (running) {
+                if (paused) {
+                    try { Thread.sleep(20) } catch (_: InterruptedException) { break }
+                    continue
+                }
+                val n = rec.read(buf, 0, buf.size)
+                if (n > 0) {
+                    writer?.write(buf, n)
+                    onPcm?.invoke(buf, n)
+                }
+            }
+        }, "dear-diary-pcm").also { it.start() }
     }
 
     fun pause() {
-        recorder?.pause()
+        paused = true
     }
 
     fun resume() {
-        recorder?.resume()
+        paused = false
     }
 
     fun stop(): File? {
         val file = outputFile
         stopInternal(delete = false)
-        return if (file.exists() && file.length() > 0) file else null
+        return if (file.exists() && file.length() > WavWriter.HEADER) file else null
     }
 
     fun cancel() {
@@ -93,15 +117,21 @@ class AudioRecorder(private val storage: AudioStorage) {
     }
 
     private fun stopInternal(delete: Boolean) {
-        try {
-            recorder?.stop()
-        } catch (_: RuntimeException) {
-            // stop() throws if start() never successfully wrote a frame
-        }
-        recorder?.reset()
-        recorder?.release()
-        recorder = null
+        running = false
+        paused = false
+        thread?.interrupt()
+        try { thread?.join(500) } catch (_: InterruptedException) { }
+        thread = null
+        try { record?.stop() } catch (_: Exception) { }
+        record?.release()
+        record = null
+        try { writer?.close() } catch (_: Exception) { }
+        writer = null
         if (delete) outputFile.delete()
+    }
+
+    companion object {
+        const val SAMPLE_RATE = 16_000
     }
 }
 

@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -115,6 +116,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.kotlinx.coroutines.android)
+    implementation("com.alphacephei:vosk-android:0.3.75")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -122,3 +124,18 @@ dependencies {
     // (android.jar stubs optJSONArray).
     testImplementation("org.json:json:20240303")
 }
+
+val voskZip = layout.projectDirectory.file("src/main/assets/vosk-small-en-us.zip")
+tasks.register("fetchVoskModel") {
+    val dest = voskZip.asFile
+    outputs.file(dest)
+    doLast {
+        if (dest.exists() && dest.length() > 1_000_000L) return@doLast
+        dest.parentFile.mkdirs()
+        URI("https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip")
+            .toURL()
+            .openStream()
+            .use { input -> dest.outputStream().use { input.copyTo(it) } }
+    }
+}
+tasks.named("preBuild") { dependsOn("fetchVoskModel") }

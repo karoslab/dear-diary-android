@@ -34,3 +34,6 @@ fastlane/test_output/
 # Misc
 .kotlin/
 .externalNativeBuild/
+
+# On-device Vosk model (~40MB). Gradle fetchVoskModel downloads it.
+app/src/main/assets/vosk-small-en-us.zip

@@ -5,3 +5,8 @@
 
 # Media3 / ExoPlayer
 -keep class androidx.media3.** { *; }
+
+# Vosk + JNA
+-keep class org.vosk.** { *; }
+-keep class com.sun.jna.** { *; }
+-dontwarn java.awt.**
