@@ -86,10 +86,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         return dest
     }
 
-    fun importStream(stream: java.io.InputStream) {
+    fun importBytes(bytes: ByteArray) {
         viewModelScope.launch {
             runCatching {
-                app.container.repository.importBackup(stream)
+                app.container.repository.importBackup(bytes.inputStream())
                 refreshStats()
                 _message.value = "Imported. Everything stayed on this device."
             }.onFailure {
@@ -131,7 +131,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
     val import = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            context.contentResolver.openInputStream(uri)?.use { vm.importStream(it) }
+            context.contentResolver.openInputStream(uri)?.use { vm.importBytes(it.readBytes()) }
         }
     }
 

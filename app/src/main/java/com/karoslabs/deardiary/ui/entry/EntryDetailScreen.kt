@@ -73,8 +73,10 @@ import com.karoslabs.deardiary.domain.StorageNames
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -86,9 +88,13 @@ class EntryDetailViewModel(
 ) : AndroidViewModel(application) {
     private val app = application as DearDiaryApp
     private val idFlow = MutableStateFlow(savedStateHandle.get<String>("id").orEmpty())
+    private val _resolved = MutableStateFlow(false)
+    val resolved = _resolved.asStateFlow()
     val entry = idFlow.flatMapLatest { id ->
+        _resolved.value = false
         if (id.isBlank()) flowOf(null) else app.container.repository.observe(id)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    }.onEach { _resolved.value = true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setId(id: String) {
         idFlow.value = id
@@ -136,6 +142,7 @@ fun EntryDetailScreen(
     val app = context.applicationContext as DearDiaryApp
     LaunchedEffect(entryId) { vm.setId(entryId) }
     val entry by vm.entry.collectAsStateWithLifecycle()
+    val resolved by vm.resolved.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     var addingTag by remember { mutableStateOf(false) }
     var tagDraft by remember { mutableStateOf("") }
@@ -143,6 +150,9 @@ fun EntryDetailScreen(
     Column(Modifier.fillMaxSize().background(colors.background)) {
         AppHeader()
         val current = entry
+        if (!resolved) {
+            return
+        }
         if (current == null) {
             Text("Entry gone.", color = colors.textSecondary, modifier = Modifier.padding(24.dp))
             return

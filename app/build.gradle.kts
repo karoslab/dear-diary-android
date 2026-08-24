@@ -118,4 +118,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Real org.json so BackupManager.decodeEntries can run on the JVM
+    // (android.jar stubs optJSONArray).
+    testImplementation("org.json:json:20240303")
 }
