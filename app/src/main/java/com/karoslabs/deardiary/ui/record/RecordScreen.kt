@@ -70,6 +70,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 enum class RecordPhase { Idle, Recording, Paused, Saving }
 
@@ -89,6 +90,7 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     private val _state = MutableStateFlow(RecordUiState())
     val state = _state.asStateFlow()
     private var timerJob: Job? = null
+    private val finishing = AtomicBoolean(false)
 
     init {
         speech.onPartial = { text ->
@@ -135,31 +137,40 @@ class RecordViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun finish() {
+        val phase = _state.value.phase
+        if (phase != RecordPhase.Recording && phase != RecordPhase.Paused) return
+        if (!finishing.compareAndSet(false, true)) return
         viewModelScope.launch {
-            timerJob?.cancel()
-            val elapsed = _state.value.elapsedMs
-            val file: File? = recorder.stop()
-            val stopped = speech.stop()
-            val shown = _state.value.liveTranscript
-            val transcript = if (shown.length >= stopped.length) shown else stopped
-            if (elapsed < 400 && transcript.isBlank() && file == null) {
-                _state.update { it.copy(phase = RecordPhase.Idle, error = "Nothing to save yet.") }
-                return@launch
-            }
-            _state.update { it.copy(phase = RecordPhase.Saving) }
-            val entry = app.container.repository.saveNew(
-                transcript = transcript,
-                durationMs = elapsed,
-                tempAudio = file,
-            )
-            _state.update {
-                it.copy(
-                    phase = RecordPhase.Idle,
-                    elapsedMs = 0,
-                    liveTranscript = "",
-                    saved = entry,
-                    reflection = ReflectionPrompts.forEntry(entry.id),
+            try {
+                timerJob?.cancel()
+                val elapsed = _state.value.elapsedMs
+                _state.update { it.copy(phase = RecordPhase.Saving) }
+                val file: File? = recorder.stop()
+                val stopped = speech.stop()
+                val shown = _state.value.liveTranscript
+                val transcript = if (shown.length >= stopped.length) shown else stopped
+                if (elapsed < 400 && transcript.isBlank() && file == null) {
+                    _state.update { it.copy(phase = RecordPhase.Idle, error = "Nothing to save yet.") }
+                    return@launch
+                }
+                val entry = app.container.repository.saveNew(
+                    transcript = transcript,
+                    durationMs = elapsed,
+                    tempAudio = file,
                 )
+                _state.update {
+                    it.copy(
+                        phase = RecordPhase.Idle,
+                        elapsedMs = 0,
+                        liveTranscript = "",
+                        saved = entry,
+                        reflection = ReflectionPrompts.forEntry(entry.id),
+                    )
+                }
+            } catch (_: Exception) {
+                _state.update { it.copy(phase = RecordPhase.Idle, error = "Could not save that entry.") }
+            } finally {
+                finishing.set(false)
             }
         }
     }

@@ -13,7 +13,7 @@
 
     <!--
       No INTERNET permission on purpose. Journal audio and transcripts cannot
-      leave this process over the network. Speech models are a system download.
+      leave this process over the network. Speech is Vosk, packaged in the app.
     -->
 
     <uses-feature
