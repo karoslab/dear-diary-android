@@ -129,7 +129,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     var confirmWipe by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    val import = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             context.contentResolver.openInputStream(uri)?.use { vm.importBytes(it.readBytes()) }
         }
@@ -173,7 +173,15 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 SettingsRow(
                     title = "Import",
                     subtitle = "Bring in a backup file that is already on this device.",
-                    onClick = { import.launch("application/zip") },
+                    onClick = {
+                        import.launch(
+                            arrayOf(
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/octet-stream",
+                            ),
+                        )
+                    },
                 )
             }
             Spacer(Modifier.height(22.dp))
