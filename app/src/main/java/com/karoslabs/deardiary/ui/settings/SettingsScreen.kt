@@ -52,10 +52,14 @@ import com.karoslabs.deardiary.ui.components.ScreenTitle
 import com.karoslabs.deardiary.ui.theme.DiaryType
 import com.karoslabs.deardiary.ui.theme.Inter
 import com.karoslabs.deardiary.ui.theme.LocalDiaryColors
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import android.net.Uri
+import android.content.ContentResolver
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as DearDiaryApp
@@ -80,16 +84,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { app.container.userPrefs.setThemeMode(mode) }
     }
 
-    suspend fun exportFile(): File {
+    suspend fun exportFile(): File = withContext(Dispatchers.IO) {
         val dest = File(app.container.audioStorage.exportCacheDir, "dear-diary-backup.zip")
         app.container.repository.exportEverything(dest)
-        return dest
+        dest
     }
 
-    fun importBytes(bytes: ByteArray) {
+    fun importUri(resolver: ContentResolver, uri: Uri) {
         viewModelScope.launch {
             runCatching {
-                app.container.repository.importBackup(bytes.inputStream())
+                withContext(Dispatchers.IO) {
+                    resolver.openInputStream(uri)?.use { app.container.repository.importBackup(it) }
+                        ?: error("no stream")
+                }
                 refreshStats()
                 _message.value = "Imported. Everything stayed on this device."
             }.onFailure {
@@ -131,7 +138,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
 
     val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            context.contentResolver.openInputStream(uri)?.use { vm.importBytes(it.readBytes()) }
+            vm.importUri(context.contentResolver, uri)
         }
     }
 

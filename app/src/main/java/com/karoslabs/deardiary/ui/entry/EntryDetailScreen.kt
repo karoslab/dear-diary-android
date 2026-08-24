@@ -70,6 +70,7 @@ import com.karoslabs.deardiary.ui.theme.DiaryType
 import com.karoslabs.deardiary.ui.theme.Inter
 import com.karoslabs.deardiary.ui.theme.LocalDiaryColors
 import com.karoslabs.deardiary.domain.StorageNames
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,6 +80,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -123,10 +125,10 @@ class EntryDetailViewModel(
         }
     }
 
-    suspend fun exportFile(id: String): File {
+    suspend fun exportFile(id: String): File = withContext(Dispatchers.IO) {
         val dest = File(app.container.audioStorage.exportCacheDir, StorageNames.exportZipName(id))
         app.container.repository.exportOne(id, dest)
-        return dest
+        dest
     }
 }
 

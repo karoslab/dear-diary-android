@@ -44,6 +44,7 @@ import com.karoslabs.deardiary.ui.components.EntryCard
 import com.karoslabs.deardiary.ui.components.ScreenTitle
 import com.karoslabs.deardiary.ui.theme.DiaryType
 import com.karoslabs.deardiary.ui.theme.LocalDiaryColors
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -59,10 +60,12 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val repo = (application as DearDiaryApp).container.repository
     private val _state = MutableStateFlow(SearchUiState())
     val state = _state.asStateFlow()
+    private var searchJob: Job? = null
 
     fun onQuery(q: String) {
         _state.update { it.copy(query = q) }
-        viewModelScope.launch {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
             val results = if (q.isBlank()) emptyList() else repo.search(q)
             _state.update { it.copy(results = results, ran = q.isNotBlank()) }
         }
