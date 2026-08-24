@@ -65,4 +65,33 @@ class JournalLogicTest {
         assertEquals(1, HeatmapBuilder.level(1))
         assertEquals(4, HeatmapBuilder.level(9))
     }
+
+    @Test
+    fun storageNamesAcceptsUuidAudioBasename() {
+        val name = "8f14e45f-ceea-467c-9d73-aa7d99b4db0f.m4a"
+        assertEquals(name, StorageNames.requireSafeBasename(name))
+        assertEquals(true, StorageNames.isSafeBasename(name))
+    }
+
+    @Test
+    fun storageNamesRejectsPathTraversal() {
+        assertEquals(false, StorageNames.isSafeBasename("../secret.m4a"))
+        assertEquals(false, StorageNames.isSafeBasename("/tmp/x.m4a"))
+        assertEquals(false, StorageNames.isSafeBasename("foo/bar.m4a"))
+        assertEquals(false, StorageNames.isSafeBasename("foo\\\\bar.m4a"))
+        assertEquals(false, StorageNames.isSafeBasename(".."))
+        assertEquals(false, StorageNames.isSafeBasename(""))
+        assertEquals(false, StorageNames.isSafeBasename("evil.zip\u0000.m4a"))
+    }
+
+    @Test
+    fun exportZipNameUsesOnlySafeId() {
+        val id = "8f14e45f-ceea-467c-9d73-aa7d99b4db0f"
+        assertEquals("dear-diary-$id.zip", StorageNames.exportZipName(id))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun exportZipNameRejectsTraversalId() {
+        StorageNames.exportZipName("../passwd")
+    }
 }

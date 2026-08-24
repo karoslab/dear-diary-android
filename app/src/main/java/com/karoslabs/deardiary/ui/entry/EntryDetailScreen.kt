@@ -69,6 +69,7 @@ import com.karoslabs.deardiary.ui.components.TagChip
 import com.karoslabs.deardiary.ui.theme.DiaryType
 import com.karoslabs.deardiary.ui.theme.Inter
 import com.karoslabs.deardiary.ui.theme.LocalDiaryColors
+import com.karoslabs.deardiary.domain.StorageNames
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -117,7 +118,7 @@ class EntryDetailViewModel(
     }
 
     suspend fun exportFile(id: String): File {
-        val dest = File(app.container.audioStorage.exportCacheDir, "dear-diary-$id.zip")
+        val dest = File(app.container.audioStorage.exportCacheDir, StorageNames.exportZipName(id))
         app.container.repository.exportOne(id, dest)
         return dest
     }

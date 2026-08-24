@@ -2,6 +2,7 @@ package com.karoslabs.deardiary.data.backup
 
 import com.karoslabs.deardiary.data.audio.AudioStorage
 import com.karoslabs.deardiary.domain.JournalEntry
+import com.karoslabs.deardiary.domain.StorageNames
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -54,7 +55,7 @@ class BackupManager(private val storage: AudioStorage) {
                         }
                         name.startsWith("audio/") -> {
                             val fileName = name.removePrefix("audio/").substringAfterLast('/')
-                            if (fileName.isNotBlank()) {
+                            if (StorageNames.isSafeBasename(fileName)) {
                                 val dest = File(stagingDir, fileName)
                                 dest.outputStream().use { zip.copyTo(it) }
                                 stagedAudio[fileName] = dest
@@ -67,7 +68,7 @@ class BackupManager(private val storage: AudioStorage) {
             }
         }
         val payload = json ?: error("Backup is missing journal.json")
-        val entries = decode(payload)
+        val entries = decodeEntries(payload)
         return ImportedBackup(entries, stagedAudio)
     }
 
@@ -95,29 +96,37 @@ class BackupManager(private val storage: AudioStorage) {
         return root.toString(2)
     }
 
-    fun decode(json: String): List<JournalEntry> {
-        val root = JSONObject(json)
-        val array = root.optJSONArray("entries") ?: JSONArray()
-        val out = mutableListOf<JournalEntry>()
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val tagsJson = obj.optJSONArray("tags") ?: JSONArray()
-            val tags = buildList {
-                for (t in 0 until tagsJson.length()) add(tagsJson.getString(t))
+    fun decode(json: String): List<JournalEntry> = decodeEntries(json)
+
+    companion object {
+        fun decodeEntries(json: String): List<JournalEntry> {
+            val root = JSONObject(json)
+            val array = root.optJSONArray("entries") ?: JSONArray()
+            val out = mutableListOf<JournalEntry>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.getString("id")
+                if (!StorageNames.isSafeBasename(id)) continue
+                val tagsJson = obj.optJSONArray("tags") ?: JSONArray()
+                val tags = buildList {
+                    for (t in 0 until tagsJson.length()) add(tagsJson.getString(t))
+                }
+                val created = obj.optString("createdAt").takeIf { it.isNotBlank() }?.let {
+                    runCatching { Instant.parse(it) }.getOrNull()
+                } ?: Instant.ofEpochMilli(obj.optLong("createdAtEpochMs"))
+                val audio = obj.optString("audioFile").takeIf { it.isNotBlank() && it != "null" }
+                    ?.takeIf { StorageNames.isSafeBasename(it) }
+                out += JournalEntry(
+                    id = id,
+                    title = obj.optString("title"),
+                    transcript = obj.optString("transcript"),
+                    createdAt = created,
+                    durationMs = obj.optLong("durationMs"),
+                    audioFileName = audio,
+                    tags = tags,
+                )
             }
-            val created = obj.optString("createdAt").takeIf { it.isNotBlank() }?.let {
-                runCatching { Instant.parse(it) }.getOrNull()
-            } ?: Instant.ofEpochMilli(obj.optLong("createdAtEpochMs"))
-            out += JournalEntry(
-                id = obj.getString("id"),
-                title = obj.optString("title"),
-                transcript = obj.optString("transcript"),
-                createdAt = created,
-                durationMs = obj.optLong("durationMs"),
-                audioFileName = obj.optString("audioFile").takeIf { it.isNotBlank() && it != "null" },
-                tags = tags,
-            )
+            return out
         }
-        return out
     }
 }

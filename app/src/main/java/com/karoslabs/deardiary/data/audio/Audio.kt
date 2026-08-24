@@ -10,6 +10,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.io.File
+import com.karoslabs.deardiary.domain.StorageNames
 
 class AudioStorage(private val context: Context) {
     val audioDir: File
@@ -20,9 +21,9 @@ class AudioStorage(private val context: Context) {
 
     fun tempRecording(): File = File(context.cacheDir, "recording-temp.m4a")
 
-    fun fileFor(fileName: String): File = File(audioDir, fileName)
+    fun fileFor(fileName: String): File = File(audioDir, StorageNames.requireSafeBasename(fileName))
 
-    fun newFileName(entryId: String): String = "$entryId.m4a"
+    fun newFileName(entryId: String): String = "${StorageNames.requireSafeBasename(entryId)}.m4a"
 
     fun usedBytes(): Long {
         if (!audioDir.exists()) return 0L

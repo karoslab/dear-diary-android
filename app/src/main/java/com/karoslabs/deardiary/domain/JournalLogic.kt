@@ -16,6 +16,24 @@ data class JournalEntry(
     val tags: List<String>,
 )
 
+/** Safe basenames for on-device audio/export files. Backup JSON is untrusted. */
+object StorageNames {
+    private val SAFE = Regex("^[A-Za-z0-9._-]{1,80}$")
+
+    fun isSafeBasename(name: String): Boolean {
+        if (name.isEmpty() || name == "." || name == "..") return false
+        if (name.any { it == '/' || it == 92.toChar() || it == 0.toChar() }) return false
+        return SAFE.matches(name)
+    }
+
+    fun requireSafeBasename(name: String): String {
+        require(isSafeBasename(name)) { "illegal storage name: $name" }
+        return name
+    }
+
+    fun exportZipName(id: String): String = "dear-diary-${requireSafeBasename(id)}.zip"
+}
+
 enum class ThemeMode { System, Dark, Light }
 
 object TitleGenerator {

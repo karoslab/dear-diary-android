@@ -11,6 +11,7 @@ import com.karoslabs.deardiary.domain.HeatmapBuilder
 import com.karoslabs.deardiary.domain.JournalEntry
 import com.karoslabs.deardiary.domain.SearchHighlight
 import com.karoslabs.deardiary.domain.StreakCalculator
+import com.karoslabs.deardiary.domain.StorageNames
 import com.karoslabs.deardiary.domain.TitleGenerator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -212,6 +213,8 @@ class JournalRepository(
     }
 
     private suspend fun persist(entry: JournalEntry) {
+        StorageNames.requireSafeBasename(entry.id)
+        entry.audioFileName?.let { StorageNames.requireSafeBasename(it) }
         dao.upsertEntry(
             EntryEntity(
                 id = entry.id,
