@@ -20,14 +20,6 @@
         android:name="android.hardware.microphone"
         android:required="true" />
 
-    <!-- Android 11+ package visibility: without this, SpeechRecognizer cannot
-         resolve the system RecognitionService and live transcription is dead. -->
-    <queries>
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-    </queries>
-
     <application
         android:name=".DearDiaryApp"
         android:allowBackup="false"

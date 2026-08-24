@@ -8,7 +8,7 @@ Package: `com.karoslabs.deardiary`
 
 ## Privacy, in one line
 
-The app does **not** declare the `INTERNET` permission. Journal audio and transcripts cannot leave the process over the network. The header always shows **0 bytes sent** while you journal. The only speech-model download is a system download (Google / Android), once, so recognition can keep working offline. Your voice never rides along.
+The app does **not** declare the `INTERNET` permission. Journal audio and transcripts cannot leave the process over the network. The header always shows **0 bytes sent** while you journal. Speech is Vosk, on this device; the English model is packaged in the app. Your voice never leaves.
 
 ## Open in Android Studio
 
@@ -35,7 +35,7 @@ export ANDROID_HOME=/path/to/Android/sdk
 - **Settings** — export everything, import backup, storage bar + stats, System / Dark / Light, reduced-motion note, speech engine row, wipe everything.
 - **Themes** — true-black dark gold, and a warm cream light theme that is designed, not inverted gray.
 
-On-device speech prefers `SpeechRecognizer.createOnDeviceSpeechRecognizer()` (API 31+) and always sets `EXTRA_PREFER_OFFLINE`. Settings names the real engine.
+On-device speech is Vosk, fed from the same `AudioRecord` tap that writes the WAV. Settings names the real engine.
 
 ## Build a release AAB (Play)
 
@@ -105,4 +105,4 @@ cd fastlane
 
 ## Architecture (short)
 
-Kotlin, Jetpack Compose, Material 3 colors restyled to the dark-gold chrome. Single activity. Room (entries + tags + FTS). Audio in `filesDir/audio`. MediaRecorder + Media3 ExoPlayer. DataStore for theme. No accounts, ads, analytics, or cloud sync.
+Kotlin, Jetpack Compose, Material 3 colors restyled to the dark-gold chrome. Single activity. Room (entries + tags + FTS). Audio in `filesDir/audio`. AudioRecord + WAV + Vosk + Media3 ExoPlayer. DataStore for theme. No accounts, ads, analytics, or cloud sync.

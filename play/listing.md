@@ -31,7 +31,7 @@ In the app:
 - A wipe control that erases everything, because your journal is yours to destroy too
 - Dark and light themes, and respect for your reduced motion setting
 
-The one download: Android / Google may fetch a speech model once so the app can work with no internet after that. Your voice never rides along.
+The speech model is packaged in the app (Vosk, English). There is no Google speech-model download. Your voice never leaves this phone.
 
 dear diary collects nothing. There is nothing to sell, share, or leak, because nothing ever leaves your phone.
 

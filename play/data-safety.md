@@ -13,11 +13,11 @@ Answer the questionnaire so the storefront matches the iOS label **Data Not Coll
 - No `INTERNET` permission in the manifest
 - Room database and audio files stay in app-private storage
 - Auto Backup and device-transfer extraction are excluded
-- Speech runs through the system on-device recognizer; this app does not upload audio
+- Speech runs through Vosk on this device from the same microphone tap that writes the audio file; this app does not upload audio
 
 ## Optional notes for reviewers
 
-If Play asks about the speech model: the one-time model download is performed by the Android / Google system speech service, not by dear diary. The app cannot initiate that download itself without internet permission. Users who already have an on-device model work fully offline.
+If Play asks about speech: the English Vosk model is packaged in the app (Gradle fetches it at build time). There is no runtime download and no Google speech service. The app has no `INTERNET` permission.
 
 ## Privacy policy URL
 

@@ -14,7 +14,7 @@ Match the iOS App Store set. Phone, dark theme first. Capture a second pass in L
 2. **Entry detail** — back, Delete entry, gold timestamp + duration, serif title, audio scrubber, body, “Tap the words to edit”, tags, Export this entry.
 3. **Search** — query `amma`, “ran over local entries, 0 bytes sent”, “2 results”, gold underline on Amma, Search tab gold.
 4. **Record** — large mic, concentric rings, PRESS TO SPEAK, Record tab gold.
-5. **Settings** — Your data, On this device storage bar, Theme (System selected), Speech to text (“Google speech, on device” or the honest fallback). Settings tab gold.
+5. **Settings** — Your data, On this device storage bar, Theme (System selected), Speech to text (“Vosk, on this device”). Settings tab gold.
 
 ## Feature graphic (1024×500)
 

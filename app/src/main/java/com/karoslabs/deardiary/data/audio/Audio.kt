@@ -86,7 +86,7 @@ class AudioRecorder(private val storage: AudioStorage) {
             val buf = ShortArray(min)
             while (running) {
                 if (paused) {
-                    try { Thread.sleep(20) } catch (_: InterruptedException) { break }
+                    rec.read(buf, 0, buf.size)
                     continue
                 }
                 val n = rec.read(buf, 0, buf.size)

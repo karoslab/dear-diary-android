@@ -23,9 +23,7 @@ These live in app-private storage and a local Room database. Android Auto Backup
 
 ## Speech to text
 
-Transcription uses the Android / Google on-device speech recognizer when the device provides one (`createOnDeviceSpeechRecognizer` on Android 12+, otherwise the system recognizer with `EXTRA_PREFER_OFFLINE`).
-
-Android or Google may download a speech model **once** so recognition can work later with no internet. That download is a system service, not a dear diary upload. Your journal audio and the words you speak are never sent by this app. If an on-device model is missing, recognition may fail locally rather than being sent to a server by dear diary.
+Transcription runs on this phone with Vosk. The English model is packaged in the app (fetched at build time into assets, unpacked once into app-private storage). The same microphone tap writes your audio file and feeds the recognizer. dear diary never uploads audio or transcripts. There is no Google speech-model download.
 
 ## Export and import
 
