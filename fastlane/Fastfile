@@ -1,0 +1,22 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build a release AAB (requires DEAR_DIARY_* or keystore.properties)"
+  lane :bundle do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+    )
+  end
+
+  desc "Upload metadata only (listing, not binaries)"
+  lane :metadata do
+    supply(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+    )
+  end
+end

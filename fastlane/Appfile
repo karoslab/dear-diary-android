@@ -1,0 +1,2 @@
+json_key_file("") # path to Play service account JSON, if you use supply
+package_name("com.karoslabs.deardiary")
